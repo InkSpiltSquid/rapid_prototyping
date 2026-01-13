@@ -26,9 +26,13 @@ class PseudoSensor:
 
     def generate_values(self):
 
-        self.humVal = self.h_range[self.h_range_index] + random.uniform(0, 10);
+        # self.humVal = self.h_range[self.h_range_index] + random.uniform(0, 3);
 
-        self.tempVal = self.t_range[self.t_range_index] + random.uniform(0, 10);
+        self.humVal = round(random.uniform(0,100), 3)
+
+        # self.tempVal = self.t_range[self.t_range_index] + random.uniform(0, 3);
+
+        self.tempVal = round(random.uniform(-20, 100), 3)
 
         self.h_range_index += 1
 
