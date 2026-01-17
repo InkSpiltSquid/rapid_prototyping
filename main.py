@@ -3,6 +3,8 @@ from PyQt6.QtCore import QSize, Qt
 from PyQt6.QtWidgets import QApplication, QPushButton, QMainWindow, QLCDNumber, QLabel, QVBoxLayout, QWidget
 from psuedoSensor import PseudoSensor
 from dataBase import SensorDatabase
+import time
+
 
 # app = QApplication(sys.argv)
 
@@ -41,6 +43,10 @@ class MainWindow(QMainWindow):
         self.last10 = QLabel("=== Last 10 Readings ===")
         self.recorded_data = QLabel("Click 'View Stored Data' to see readings")
 
+        10_to_collect = QPushButton("10 to Collect")
+        10_to_collect.clicked.connect(self.ten_collects)
+
+
         layout = QVBoxLayout()
         layout.addWidget(button)
         layout.addWidget(self.humidity_label)
@@ -49,6 +55,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(view_data_button)
         layout.addWidget(self.last10)
         layout.addWidget(self.recorded_data)
+        layout.addWidget(10_to_collect)
 
         container = QWidget()
         container.setLayout(layout)
@@ -68,6 +75,7 @@ class MainWindow(QMainWindow):
             self.temp_label.setText(f"Temperature: {t_display:.3f} Fahrenheit")
         else:
             self.temp_label.setText(f"Temperature: {t:.3f} Celsius")
+        return h, t
     
     def unit_button_clicked(self):
         if self.sender().isChecked():
@@ -92,6 +100,12 @@ class MainWindow(QMainWindow):
             data_text += f"ID: {reading[0]} | Time: {reading[1]} | Temp: {reading[2]:.3f} {self.units} | Humidity: {reading[3]:.3f}%\n"
 
         self.recorded_data.setText(data_text)
+
+    def ten_collects(self):
+        for _ in range(10):
+            h, t = button_clicked()
+            self.record.setText(f"ID: {_} | Time: {time} | Temp {t} {self.units} | Humidity: {h}")
+            time.sleep(1)
 
     def closeEvent(self, event):
         self.db.close()
