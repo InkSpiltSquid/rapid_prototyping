@@ -3,6 +3,7 @@ from PyQt6.QtCore import QSize, Qt
 from PyQt6.QtWidgets import QApplication, QPushButton, QMainWindow, QLCDNumber, QLabel, QVBoxLayout, QWidget
 from psuedoSensor import PseudoSensor
 from dataBase import SensorDatabase
+import datetime
 import time
 
 
@@ -39,12 +40,16 @@ class MainWindow(QMainWindow):
 
         self.humidity_label = QLabel("Humidity: -- %")
         self.temp_label = QLabel("Temperature: --")
+        self.collect = QLabel("10 Data Points")
 
         self.last10 = QLabel("=== Last 10 Readings ===")
         self.recorded_data = QLabel("Click 'View Stored Data' to see readings")
 
-        10_to_collect = QPushButton("10 to Collect")
-        10_to_collect.clicked.connect(self.ten_collects)
+        ten_to_collect = QPushButton("10 to Collect")
+        ten_to_collect.clicked.connect(self.ten_collects)
+
+        kill_program = QPushButton("Kill GUI")
+        kill_program.clicked.connect(QApplication.quit)
 
 
         layout = QVBoxLayout()
@@ -55,7 +60,9 @@ class MainWindow(QMainWindow):
         layout.addWidget(view_data_button)
         layout.addWidget(self.last10)
         layout.addWidget(self.recorded_data)
-        layout.addWidget(10_to_collect)
+        layout.addWidget(ten_to_collect)
+        layout.addWidget(self.collect)
+        layout.addWidget(kill_program)
 
         container = QWidget()
         container.setLayout(layout)
@@ -66,8 +73,9 @@ class MainWindow(QMainWindow):
     def button_clicked(self):
         h,t = self.ps.generate_values()
 
-        # Save to database (always save raw Celsius values)
         self.db.add_reading(t, h)
+
+        self.check_alerts(h, t)
 
         self.humidity_label.setText(f"Humidity: {h:.3f} %")
         if self.toggle_units == 0:
@@ -88,13 +96,38 @@ class MainWindow(QMainWindow):
             self.units = "F"
         return self.units
 
-    
+    def check_alerts(self, humidity, temperature):
+
+        if self.toggle_units == 1:
+            TEMP_HIGH = 90  # Celsius
+            TEMP_LOW = 0   # Celsius
+        else:
+            TEMP_HIGH = 194 # Far
+            TEMP_LOW = -32  # Far
+
+        HUMIDITY_HIGH = 80  
+        HUMIDITY_LOW = 15   
+
+
+        self.temp_label.setStyleSheet("")
+        self.humidity_label.setStyleSheet("")
+
+        if temperature > TEMP_HIGH:
+            self.temp_label.setStyleSheet("color: red; font-weight: bold;")
+        elif temperature < TEMP_LOW:
+            self.temp_label.setStyleSheet("color: blue; font-weight: bold;")
+
+        if humidity > HUMIDITY_HIGH:
+            self.humidity_label.setStyleSheet("color: red; font-weight: bold;")
+        elif humidity < HUMIDITY_LOW:
+            self.humidity_label.setStyleSheet("color: orange; font-weight: bold;")
+
+
     def view_data_clicked(self):
         readings = self.db.get_recent_readings(10)
         if not readings:
             self.recorded_data.setText("No readings stored yet!")
             return
-        # Build a string with all readings
         data_text = ""
         for reading in readings:
             data_text += f"ID: {reading[0]} | Time: {reading[1]} | Temp: {reading[2]:.3f} {self.units} | Humidity: {reading[3]:.3f}%\n"
@@ -102,10 +135,15 @@ class MainWindow(QMainWindow):
         self.recorded_data.setText(data_text)
 
     def ten_collects(self):
-        for _ in range(10):
-            h, t = button_clicked()
-            self.record.setText(f"ID: {_} | Time: {time} | Temp {t} {self.units} | Humidity: {h}")
+        all_data = ""
+        for i in range(10):
+            h, t = self.button_clicked()
+            timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            all_data += f"ID: {i} | Time: {timestamp} | Temp: {t:.3f} {self.units} | Humidity: {h:.3f}%\n"
             time.sleep(1)
+        self.collect.setText(all_data)
+
+
 
     def closeEvent(self, event):
         self.db.close()
@@ -118,19 +156,6 @@ app = QApplication(sys.argv)
 window = MainWindow()
 window.show()
 app.exec()
-    
 
-
-ps = PseudoSensor()
-
-# for i in range(30):
-
-#     h,t = ps.generate_values()
-
-#     print("i ",i)
-
-#     print("H ",h)
-
-#     print("T ",t)
 
 
