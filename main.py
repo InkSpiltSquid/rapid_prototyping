@@ -7,14 +7,6 @@ import datetime
 import time
 
 
-# app = QApplication(sys.argv)
-
-# # window = QPushButton("Push Me")
-# window = QMainWindow()
-# window.show()
-
-# app.exec()
-
 class MainWindow(QMainWindow):
 
     def __init__(self):
@@ -79,17 +71,13 @@ class MainWindow(QMainWindow):
         scroll.setWidgetResizable(True)
         self.setCentralWidget(scroll)   
 
-        # self.setCentralWidget(button)
     
     def button_clicked(self):
-        h,t = self.ps.generate_values()
-
-        self.db.add_reading(t, h)
-
-        # Determine temperature display and alert status
-        alert_status = self.check_alerts(h, t)
-
-        if self.toggle_units == 0:
+        """ Single Read sensor button """
+        h,t = self.ps.generate_values()     # calling from PsuedoSensor.py
+        self.db.add_reading(t, h)   # adding read to the database
+        alert_status = self.check_alerts(h, t)  # Determine temperature display and alert status
+        if self.toggle_units == 0:  # Checking what toggle_units is set to for temperature Units (Fahrenheit <=> Celsius)
             t_display = (t * 9/5) + 32
             temp_text = f"{t_display:.3f} °F"
             unit = "Fahrenheit"
@@ -97,7 +85,7 @@ class MainWindow(QMainWindow):
             temp_text = f"{t:.3f} °C"
             unit = "Celsius"
 
-        # Build consolidated display text
+       
         display_text = f"""**========** CURRENT READING **========**
 
 Humidity: {h:.3f}%
@@ -105,10 +93,11 @@ Temperature: {temp_text}
 
 {alert_status}
 """
-        self.display_area.setText(display_text)
+        self.display_area.setText(display_text)     # Display within the GUI terminal
         return h, t
     
     def unit_button_clicked(self):
+        """ Sets toggle_units for conversion """
         if self.sender().isChecked():
             self.toggle_units = 1
             print("Button is ON - switching to Fahrenheit")
@@ -121,32 +110,23 @@ Temperature: {temp_text}
 
     def check_alerts(self, humidity, temperature):
         """Check thresholds from user input fields and return alert status"""
-
         try:
-            # Read threshold values from input fields
-            TEMP_THRESHOLD = float(self.temp_threshold_input.text())
+            TEMP_THRESHOLD = float(self.temp_threshold_input.text())    # Read threshold values from input fields
             HUMIDITY_THRESHOLD = float(self.humidity_threshold_input.text())
         except ValueError:
             return "Invalid alarm threshold values!"
 
         alerts = []
 
-        # Convert temperature to Fahrenheit for comparison if needed
-        if self.toggle_units == 1:
-            # Currently displaying Celsius, convert to Fahrenheit for threshold check
+        
+        if self.toggle_units == 1:      # Convert temperature to Fahrenheit for comparison if needed
             temp_check = (temperature * 9/5) + 32
         else:
-            # Already in Fahrenheit
-            temp_check = temperature
-
-        # Check temperature against threshold
-        if temp_check > TEMP_THRESHOLD:
+            temp_check = temperature    # Already in Fahrenheit
+        if temp_check > TEMP_THRESHOLD:     # Check temperature against threshold
             alerts.append("ALERT: Temperature EXCEEDS alarm threshold!")
-
-        # Check humidity against threshold
-        if humidity > HUMIDITY_THRESHOLD:
+        if humidity > HUMIDITY_THRESHOLD:    # Check humidity against threshold
             alerts.append("ALERT: Humidity EXCEEDS alarm threshold!")
-
         if alerts:
             return "\n".join(alerts)
         else:
@@ -154,6 +134,7 @@ Temperature: {temp_text}
 
 
     def view_data_clicked(self):
+        """ Pull previous reads from dataBase.py """
         readings = self.db.get_recent_readings(10)
         if not readings:
             self.display_area.setText("No readings stored yet!")
@@ -161,7 +142,7 @@ Temperature: {temp_text}
 
         temps = [reading[2] for reading in readings]
         humidities = [reading[3] for reading in readings]
-
+        """ finds min, max, and the average of temps and humidity """
         temp_min = min(temps)
         temp_max = max(temps)
         temp_avg = sum(temps) / len(temps)
@@ -182,7 +163,7 @@ Humidity (%):
    Maximum: {humidity_max:.3f}
    Average: {humidity_avg:.3f}
 
-═══ DETAILED READINGS ═══
+**========** DETAILED READINGS **========**
 
 """
         for reading in readings:
@@ -192,6 +173,7 @@ Humidity (%):
         self.display_area.setText(data_text)
 
     def ten_collects(self):
+        """ Collects 10 psuedoSensor readings with a 1 second pause in between """
         all_data = "═══ COLLECTING 10 READINGS ═══\n\n"
         for i in range(10):
             h, t = self.button_clicked()
