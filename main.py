@@ -1,6 +1,6 @@
 import sys
 from PyQt6.QtCore import QSize, Qt
-from PyQt6.QtWidgets import QApplication, QPushButton, QMainWindow, QLCDNumber, QLabel, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QApplication, QPushButton, QMainWindow, QLCDNumber, QLabel, QVBoxLayout, QWidget, QLineEdit, QHBoxLayout, QScrollArea
 from psuedoSensor import PseudoSensor
 from dataBase import SensorDatabase
 import datetime
@@ -23,7 +23,7 @@ class MainWindow(QMainWindow):
         self.toggle_units = 0
         self.units = "F"
         self.setWindowTitle("Sensor Reader with DataBase")
-        # self.setFixedSize(QSize(200,400))
+        self.setFixedSize(QSize(500,700))
 
         self.ps = PseudoSensor()
         self.db = SensorDatabase()
@@ -38,14 +38,23 @@ class MainWindow(QMainWindow):
         view_data_button = QPushButton("View Stored Data")
         view_data_button.clicked.connect(self.view_data_clicked)
 
-        self.humidity_label = QLabel("Humidity: -- %")
-        self.temp_label = QLabel("Temperature: --")
-        self.collect = QLabel("10 Data Points")
+        temp_threshold_layout = QHBoxLayout()
+        temp_threshold_layout.addWidget(QLabel("Temp Alarm (°F):"))
+        self.temp_threshold_input = QLineEdit("194")
+        temp_threshold_layout.addWidget(self.temp_threshold_input)
 
-        self.last10 = QLabel("=== Last 10 Readings ===")
-        self.recorded_data = QLabel("Click 'View Stored Data' to see readings")
+        humidity_threshold_layout = QHBoxLayout()
+        humidity_threshold_layout.addWidget(QLabel("Humidity Alarm (%):"))
+        self.humidity_threshold_input = QLineEdit("80")
+        humidity_threshold_layout.addWidget(self.humidity_threshold_input)
 
-        ten_to_collect = QPushButton("10 to Collect")
+
+        self.display_area = QLabel("Welcome! Click 'Read Sensor' to begin")
+        self.display_area.setWordWrap(True)
+        self.display_area.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        self.display_area.setStyleSheet("padding: 10px; border: 1px solid gray;")
+
+        ten_to_collect = QPushButton("Collect 10")
         ten_to_collect.clicked.connect(self.ten_collects)
 
         kill_program = QPushButton("Kill GUI")
@@ -54,19 +63,21 @@ class MainWindow(QMainWindow):
 
         layout = QVBoxLayout()
         layout.addWidget(button)
-        layout.addWidget(self.humidity_label)
-        layout.addWidget(self.temp_label)
         layout.addWidget(unit_button)
-        layout.addWidget(view_data_button)
-        layout.addWidget(self.last10)
-        layout.addWidget(self.recorded_data)
         layout.addWidget(ten_to_collect)
-        layout.addWidget(self.collect)
+        layout.addWidget(view_data_button)
+        layout.addLayout(temp_threshold_layout)
+        layout.addLayout(humidity_threshold_layout)
+        layout.addWidget(self.display_area)
         layout.addWidget(kill_program)
 
         container = QWidget()
         container.setLayout(layout)
-        self.setCentralWidget(container)   
+
+        scroll = QScrollArea()
+        scroll.setWidget(container)
+        scroll.setWidgetResizable(True)
+        self.setCentralWidget(scroll)   
 
         # self.setCentralWidget(button)
     
@@ -75,14 +86,26 @@ class MainWindow(QMainWindow):
 
         self.db.add_reading(t, h)
 
-        self.check_alerts(h, t)
+        # Determine temperature display and alert status
+        alert_status = self.check_alerts(h, t)
 
-        self.humidity_label.setText(f"Humidity: {h:.3f} %")
         if self.toggle_units == 0:
             t_display = (t * 9/5) + 32
-            self.temp_label.setText(f"Temperature: {t_display:.3f} Fahrenheit")
+            temp_text = f"{t_display:.3f} °F"
+            unit = "Fahrenheit"
         else:
-            self.temp_label.setText(f"Temperature: {t:.3f} Celsius")
+            temp_text = f"{t:.3f} °C"
+            unit = "Celsius"
+
+        # Build consolidated display text
+        display_text = f"""**========** CURRENT READING **========**
+
+Humidity: {h:.3f}%
+Temperature: {temp_text}
+
+{alert_status}
+"""
+        self.display_area.setText(display_text)
         return h, t
     
     def unit_button_clicked(self):
@@ -97,51 +120,86 @@ class MainWindow(QMainWindow):
         return self.units
 
     def check_alerts(self, humidity, temperature):
+        """Check thresholds from user input fields and return alert status"""
 
+        try:
+            # Read threshold values from input fields
+            TEMP_THRESHOLD = float(self.temp_threshold_input.text())
+            HUMIDITY_THRESHOLD = float(self.humidity_threshold_input.text())
+        except ValueError:
+            return "Invalid alarm threshold values!"
+
+        alerts = []
+
+        # Convert temperature to Fahrenheit for comparison if needed
         if self.toggle_units == 1:
-            TEMP_HIGH = 90  # Celsius
-            TEMP_LOW = 0   # Celsius
+            # Currently displaying Celsius, convert to Fahrenheit for threshold check
+            temp_check = (temperature * 9/5) + 32
         else:
-            TEMP_HIGH = 194 # Far
-            TEMP_LOW = -32  # Far
+            # Already in Fahrenheit
+            temp_check = temperature
 
-        HUMIDITY_HIGH = 80  
-        HUMIDITY_LOW = 15   
+        # Check temperature against threshold
+        if temp_check > TEMP_THRESHOLD:
+            alerts.append("ALERT: Temperature EXCEEDS alarm threshold!")
 
+        # Check humidity against threshold
+        if humidity > HUMIDITY_THRESHOLD:
+            alerts.append("ALERT: Humidity EXCEEDS alarm threshold!")
 
-        self.temp_label.setStyleSheet("")
-        self.humidity_label.setStyleSheet("")
-
-        if temperature > TEMP_HIGH:
-            self.temp_label.setStyleSheet("color: red; font-weight: bold;")
-        elif temperature < TEMP_LOW:
-            self.temp_label.setStyleSheet("color: blue; font-weight: bold;")
-
-        if humidity > HUMIDITY_HIGH:
-            self.humidity_label.setStyleSheet("color: red; font-weight: bold;")
-        elif humidity < HUMIDITY_LOW:
-            self.humidity_label.setStyleSheet("color: orange; font-weight: bold;")
+        if alerts:
+            return "\n".join(alerts)
+        else:
+            return "All readings normal"
 
 
     def view_data_clicked(self):
         readings = self.db.get_recent_readings(10)
         if not readings:
-            self.recorded_data.setText("No readings stored yet!")
+            self.display_area.setText("No readings stored yet!")
             return
-        data_text = ""
-        for reading in readings:
-            data_text += f"ID: {reading[0]} | Time: {reading[1]} | Temp: {reading[2]:.3f} {self.units} | Humidity: {reading[3]:.3f}%\n"
 
-        self.recorded_data.setText(data_text)
+        temps = [reading[2] for reading in readings]
+        humidities = [reading[3] for reading in readings]
+
+        temp_min = min(temps)
+        temp_max = max(temps)
+        temp_avg = sum(temps) / len(temps)
+
+        humidity_min = min(humidities)
+        humidity_max = max(humidities)
+        humidity_avg = sum(humidities) / len(humidities)
+
+        data_text = f"""**========** LAST 10 READINGS STATISTICS **========**
+
+Temperature (C):
+   Minimum: {temp_min:.3f}
+   Maximum: {temp_max:.3f}
+   Average: {temp_avg:.3f}
+
+Humidity (%):
+   Minimum: {humidity_min:.3f}
+   Maximum: {humidity_max:.3f}
+   Average: {humidity_avg:.3f}
+
+═══ DETAILED READINGS ═══
+
+"""
+        for reading in readings:
+            data_text += f"ID: {reading[0]} | {reading[1]}\n"
+            data_text += f"   Temp: {reading[2]:.3f}°C | Humidity: {reading[3]:.3f}%\n\n"
+
+        self.display_area.setText(data_text)
 
     def ten_collects(self):
-        all_data = ""
+        all_data = "═══ COLLECTING 10 READINGS ═══\n\n"
         for i in range(10):
             h, t = self.button_clicked()
             timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            all_data += f"ID: {i} | Time: {timestamp} | Temp: {t:.3f} {self.units} | Humidity: {h:.3f}%\n"
+            all_data += f"Reading {i+1}/10 | {timestamp}\n"
+            all_data += f"   Temp: {t:.3f} {self.units} | Humidity: {h:.3f}%\n\n"
             time.sleep(1)
-        self.collect.setText(all_data)
+        self.display_area.setText(all_data)
 
 
 
