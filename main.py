@@ -86,7 +86,7 @@ class MainWindow(QMainWindow):
             unit = "Celsius"
 
        
-        display_text = f"""**========** CURRENT READING **========**
+        display_text = f"""======== CURRENT READING ========
 
 Humidity: {h:.3f}%
 Temperature: {temp_text}
@@ -151,7 +151,7 @@ Temperature: {temp_text}
         humidity_max = max(humidities)
         humidity_avg = sum(humidities) / len(humidities)
 
-        data_text = f"""**========** LAST 10 READINGS STATISTICS **========**
+        data_text = f"""======== LAST 10 READINGS STATISTICS ========
 
 Temperature (C):
    Minimum: {temp_min:.3f}
@@ -163,7 +163,7 @@ Humidity (%):
    Maximum: {humidity_max:.3f}
    Average: {humidity_avg:.3f}
 
-**========** DETAILED READINGS **========**
+======== DETAILED READINGS ========
 
 """
         for reading in readings:
